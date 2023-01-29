@@ -1,0 +1,719 @@
+                    : ':' [ CHAR : ] LITERAL ;
+                    : ';' [ CHAR ; ] LITERAL ;
+                    : '(' [ CHAR ( ] LITERAL ;
+                    : ')' [ CHAR ) ] LITERAL ;
+                    : '"' [ CHAR " ] LITERAL ;
+                    : '-' [ CHAR - ] LITERAL ;
+                    : '.' [ CHAR . ] LITERAL ;
+                    : ( IMMEDIATE 1 BEGIN KEY DUP '(' = IF DROP 1+ ELSE ')' = IF 1- THEN THEN DUP 0= UNTIL DROP ;
+                    : SPACES ( n -- ) BEGIN DUP 0> WHILE SPACE 1- REPEAT DROP ;
+                    : WITHIN -ROT OVER <= IF > IF TRUE ELSE FALSE THEN ELSE 2DROP FALSE THEN ;
+                    : ALIGNED ( c-addr -- a-addr ) 3 + 3 INVERT AND ;
+                    : ALIGN HERE @ ALIGNED HERE ! ;
+                    : C, HERE @ C! 1 HERE +! ;
+                    : S" IMMEDIATE ( -- addr len )
+                        STATE @ IF
+                            ' LITS , HERE @ 0 ,
+                            BEGIN KEY DUP '"'
+                                    <> WHILE C, REPEAT
+                            DROP DUP HERE @ SWAP - 4- SWAP ! ALIGN
+                        ELSE
+                            HERE @
+                            BEGIN KEY DUP '"'
+                                    <> WHILE OVER C! 1+ REPEAT
+                            DROP HERE @ - HERE @ SWAP
+                        THEN
+                    ;
+                    : ." IMMEDIATE ( -- )
+                        STATE @ IF
+                            [COMPILE] S" ' TELL ,
+                        ELSE
+                            BEGIN KEY DUP '"' = IF DROP EXIT THEN EMIT AGAIN
+                        THEN
+                    ;
+                    : DICT WORD FIND ;
+                    : VALUE ( n -- ) WORD CREATE DOCOL , ' LIT , , ' EXIT , ;
+                    : TO IMMEDIATE ( n -- )
+                    ;
+                    : ID. 4+ COUNT F_LENMASK AND BEGIN DUP 0> WHILE SWAP COUNT EMIT SWAP 1- REPEAT 2DROP ;
+                    : ?HIDDEN 4+ C@ F_HIDDEN AND ;
+                    : ?IMMEDIATE 4+ C@ F_IMMED AND ;
+                    : WORDS LATEST @ BEGIN ?DUP WHILE DUP ?HIDDEN NOT IF DUP ID. SPACE THEN @ REPEAT CR ;
+                    : FORGET DICT DUP @ LATEST ! HERE ! ;
+                    : CFA> LATEST @ BEGIN ?DUP WHILE 2DUP SWAP < IF NIP EXIT THEN @ REPEAT DROP 0 ;
+                    : :NONAME 0 0 CREATE HERE @ DOCOL , ] ;
+                    : ['] IMMEDIATE ' LIT , ;
+                    : EXCEPTION-MARKER RDROP 0 ;
+                    : CATCH ( xt -- exn? ) DSP@ 4+ >R ' EXCEPTION-MARKER 4+ >R EXECUTE ;
+                    : THROW ( n -- ) ?DUP IF
+                        RSP@ BEGIN DUP R0 4-
+                            < WHILE DUP @ ' EXCEPTION-MARKER 4+
+                            = IF 4+ RSP! DUP DUP DUP R> 4- SWAP OVER ! DSP! EXIT THEN
+                        4+ REPEAT DROP
+                        CASE
+                            0 1- OF ." ABORTED" CR ENDOF
+                            ." UNCAUGHT THROW " DUP . CR
+                        ENDCASE QUIT THEN
+                    ;
+                    : ABORT ( -- ) 0 1- THROW ;
+                        : ALLOT	
+                        HERE @ SWAP	
+                        HERE +!		
+                    ;
+                    : CELLS  4 * ;
+                    : VARIABLE
+                        1 CELLS ALLOT
+                        WORD CREATE	
+                        DOCOL ,		
+                        ' LIT ,		
+                        ,		
+                        ' EXIT ,	
+                    ;
+                    hex
+                    : CELL
+                        CELLS +
+                    ;
+                    : FIXRASP4
+                        DUP 8 - !
+                    ;
+                    variable ciclo_i
+                    : i! ciclo_i ! ;
+                    : i ciclo_i @ ;
+                    : i+ i 1 + i! ;
+                    variable ciclo_k
+                    : k! ciclo_k ! ;
+                    : k ciclo_k @ ;
+                    : k+ k 1 + k! ;
+                    variable ciclo_j
+                    : j! ciclo_j ! ;
+                    : j ciclo_j @ ;
+                    : j+ j 1 + j! ;
+                    variable lenght
+                    variable posx
+                    variable posy
+                    variable cursorx
+                    variable cursory
+                    \nel rasp3 è 3F000000
+                    FE000000 CONSTANT RASBP4
+                    : MAILBOX
+                        RASBP4 B880 +
+                        SWAP
+                        1 = IF 20 + THEN
+                    ;
+                        : WR 0 + ;
+                        : PEEK 10 + ;
+                        : SENDER 14 + ;
+                        : STATUS 18 + ;
+                        : CONFIG 1C + ;
+                        40000000 CONSTANT MAILBOXEMPTY
+                        0 CONSTANT STARTMAILBOX
+                        0 CONSTANT ENDMAILBOX 
+                        8 CONSTANT MAILBOXCHANNEL 
+                        8 CONSTANT BITSPERPIXEL 
+                        400 CONSTANT WIDTH 
+                        300 CONSTANT HEIGHT
+                        48003 CONSTANT SETPHYSICALWH
+                        40004 CONSTANT SETVIRTUALWH
+                        48005 CONSTANT SETDEPTH
+                        40001 CONSTANT ALLOCATEBUFFER
+                        4800B CONSTANT SETPALETTE
+                        48001 CONSTANT RELEASEBUFFER
+                        40002 CONSTANT BLANKSCREEN
+                        40004 CONSTANT GETVIRTUALWH
+                        08011 CONSTANT CURSORSTATE
+                        08010 CONSTANT CURSORINFO
+                        0 CONSTANT PALETTEBACKGROUND
+                        1 CONSTANT PALETTELINE
+                        2 CONSTANT PALETTELINE2
+                        3 CONSTANT PALETTELINE3
+                        1A CONSTANT LASTPALETTE
+                    variable MAILBOXBUFFER 40 cells allot FIXRASP4
+                    : BUFFER
+                        MAILBOXBUFFER FFFF0 AND
+                        10 +
+                    ;
+                    50 BUFFER 0 CELL !
+                    : WIPE
+                        BEGIN
+                            0 MAILBOX @
+                            DROP
+                            1 MAILBOX STATUS @
+                            MAILBOXEMPTY =
+                        UNTIL
+                    ;
+                        : WRITE 
+                        WIPE
+                        MAILBOXCHANNEL OR
+                        1 MAILBOX WR ! 
+                    ;
+                    : SETPHYSICAL
+                        SETPHYSICALWH BUFFER 2 cell !
+                        8 BUFFER 3 CELL !
+                        STARTMAILBOX BUFFER 4 cell !
+                        WIDTH BUFFER 5 cell ! 
+                        HEIGHT BUFFER 6 cell !
+                    ;
+                    : SETVIRTUAL
+                        SETVIRTUALWH BUFFER 7 cell !
+                        8 BUFFER 8 cell !
+                        STARTMAILBOX BUFFER 9 cell !
+                        WIDTH BUFFER A cell !
+                        HEIGHT BUFFER B cell !
+                    ;
+                    : SETDEPTH
+                        SETDEPTH BUFFER C cell !
+                        4 BUFFER D cell !
+                        STARTMAILBOX BUFFER E cell !
+                        BITSPERPIXEL BUFFER F cell !
+                    ;
+                    : SETCURSORINFO
+                        50 BUFFER 0 CELL !
+                        STARTMAILBOX BUFFER 1 cell !
+                        CURSORINFO BUFFER 2 cell !
+                        24 buffer 3 CELL !
+                        STARTMAILBOX BUFFER 4 cell !
+                        4 buffer 5 cell !
+                        2 buffer 6 cell !
+                        0 BUFFER 7 CELL !
+                        2 buffer 8 cell !
+                        0 BUFFER 9 CELL !
+                        0 BUFFER A CELL !
+                        ENDMAILBOX buffer B cell ! 
+                        BUFFER WRITE
+                    ; 
+                    : SETCURSOR
+                        50 BUFFER 0 CELL !
+                        STARTMAILBOX BUFFER 1 cell !
+                        CURSORSTATE BUFFER 2 cell !
+                        16 buffer 3 CELL !
+                        STARTMAILBOX BUFFER 4 cell !
+                        1 buffer 5 cell !
+                        cursorx @ buffer 6 cell !
+                        cursory @ buffer 7 cell !
+                        1 buffer 8 cell !
+                        ENDMAILBOX buffer 9 cell ! 
+                        BUFFER WRITE
+                    ;
+                        : ALLOCATEFRAMEBUFFER
+                        STARTMAILBOX BUFFER 1 cell !
+                        SETPHYSICAL
+                        SETVIRTUAL
+                        SETDEPTH
+                        ALLOCATEBUFFER BUFFER 10 cell !
+                        8 BUFFER 11 cell !
+                        8 BUFFER 12 cell !
+                        1000 BUFFER 13 cell !
+                        ENDMAILBOX BUFFER 14 cell !  
+                        BUFFER WRITE
+                    ;
+                    : SETMULTIPALETTE
+                        STARTMAILBOX BUFFER 1 cell !
+                        0 k!
+                        2 i!
+                        BEGIN
+                            SETPALETTE BUFFER i cell !
+                            i+
+                            C BUFFER i cell !
+                            i+
+                            STARTMAILBOX BUFFER i cell ! 
+                            i+
+                            BUFFER i cell !
+                            i+
+                            1 BUFFER i cell !
+                            i+
+                            BUFFER i cell !
+                            i+
+                            k+
+                            DUP -2 = 
+                        UNTIL
+                        DROP
+                        C 6 4 k * * + BUFFER 0 cell !
+                        ENDMAILBOX BUFFER i cell !
+                        BUFFER WRITE
+                    ;
+                        : RELEASEBUFFER
+                            10 BUFFER 0 CELL !
+                            STARTMAILBOX BUFFER 1 CELL !
+                            RELEASEBUFFER BUFFER 2 CELL !
+                            ENDMAILBOX BUFFER 3 CELL !
+                            BUFFER WRITE
+                        ; 
+                        : BLANKSCREENY
+                            30 BUFFER 0 CELL !
+                            STARTMAILBOX BUFFER 1 CELL !
+                            BLANKSCREEN BUFFER 2 CELL !
+                            4 BUFFER 3 CELL !
+                            STARTMAILBOX BUFFER 4 CELL !
+                            1 buffer 5 cell !
+                            ENDMAILBOX BUFFER 6 CELL !
+                            BUFFER WRITE
+                        ;
+                        : BLANKSCREENN
+                            30 BUFFER 0 CELL !
+                            STARTMAILBOX BUFFER 1 CELL !
+                            BLANKSCREEN BUFFER 2 CELL !
+                            4 BUFFER 3 CELL !
+                            STARTMAILBOX BUFFER 4 CELL !
+                            0 buffer 5 cell !
+                            ENDMAILBOX BUFFER 6 CELL !
+                            BUFFER WRITE
+                        ;
+                        : GETVIRTUALWHFRAMEBUFFER
+                            30 BUFFER 0 CELL !
+                            STARTMAILBOX BUFFER 1 CELL !
+                            GETVIRTUALWH BUFFER 2 CELL !
+                            ENDMAILBOX BUFFER 3 CELL !
+                            BUFFER WRITE
+                        ;
+                        : SETSINGLEPALETTE
+                            -2 -2 2OVER
+                            SETMULTIPALETTE
+                            DROP DROP DROP
+                        ;
+                          : CHANGEBACKGROUND
+                            0 \che è l'indice del background
+                            -2 -2 2OVER
+                            SETMULTIPALETTE
+                            DROP DROP DROP
+                        ;
+                        : CHANGELINE1 
+                            1 \che è l'indice della line 1
+                            -2 -2 2OVER
+                            SETMULTIPALETTE
+                            DROP DROP DROP
+                        ;
+                        : CHANGELINE2
+                            2 \che è l'indice che è l'indice della line 2
+                            -2 -2 2OVER
+                            SETMULTIPALETTE
+                            DROP DROP DROP
+                        ;
+                        : CHANGELINE3
+                            3 \che è l'indice che è l'indice della line 3
+                            -2 -2 2OVER
+                            SETMULTIPALETTE
+                            DROP DROP DROP
+                        ;
+                        : INIZIALIZZAPALETTE
+                            50 BUFFER 0 cell !
+                            STARTMAILBOX BUFFER 1 cell !
+                            SETPALETTE BUFFER 2 cell !
+                            E4 BUFFER 3 cell !
+                            STARTMAILBOX BUFFER 4 cell !
+                            PALETTEBACKGROUND BUFFER 5 cell ! 
+                            LASTPALETTE BUFFER 6 cell !
+                            FF000000 BUFFER 7 cell !
+                            FFFFFFFF BUFFER 8 cell !
+                            ffaab0c3 BUFFER 9 cell !
+                            FFFFFFFF BUFFER 10 cell !
+                            ENDMAILBOX BUFFER 7 LASTPALETTE + cell !
+                            BUFFER WRITE      
+                        ;     
+                        FE003000 constant CS 
+                        FE003004 constant CLO
+                        FE003008 constant CHI
+                        FE00300C constant C0
+                        : delay CLO @ + C0 ! BEGIN CS @ 1 = UNTIL ;
+                        : TIMER
+                        20000 delay
+                        ;
+                        ALLOCATEFRAMEBUFFER 
+                        BUFFER 13 CELL @ 3FFFFFFF AND CONSTANT FRAMEBUFFER
+                        INIZIALIZZAPALETTE
+                            : DRAWV
+                                lenght !
+                                posy !
+                                posx !
+                                0 i!
+                                BEGIN
+                                    DUP
+                                    FRAMEBUFFER posx @ + posy @ WIDTH * + ! 
+                                    posy @ 1 + posy !
+                                    i+
+                                    i lenght @ =
+                                UNTIL
+                                drop
+                            ;
+                            : DRAWH    
+                                lenght !
+                                posy !
+                                posx !
+                                
+                                0 j!
+                                BEGIN
+                                    0 i!
+                                    BEGIN
+                                        DUP
+                                        FRAMEBUFFER posx @ + posy @ WIDTH * + i + !
+                                        i 4 + i!
+                                        i lenght @ =
+                                    UNTIL
+                                    posy @ 1 + posy !
+                                    j+
+                                    j 4 = 
+                                UNTIL
+                                drop
+                            ;
+                                variable num0 50 cells allot FIXRASP4
+                                variable num1 50 CELLS ALLOT FIXRASP4
+                                variable NumeroPalette 8 CELLS ALLOT FIXRASP4
+                                    num0 NumeroPalette 0 cell !
+                                    num1 NumeroPalette 1 cell !
+                                variable temp
+                                : load
+                                    0 i!
+                                    temp !
+                                    BEGIN
+                                        temp @ i CELL ! 
+                                        
+                                        i+
+                                        
+                                        dup
+                                        -1
+                                        =
+                                    UNTIL
+                                    DROP
+                                ;
+-1 0 1010101 0 101 0 1010000 10000 0 100 1000000 0 1 1000000 0 1 1000000 0 1 1000000 0 1 1000000 0 1 1000000 0 1 1000000 0 1 1000000 0 1 1000000 0 1 1000000 0 1 10000 0 100 101 0 1010000 0 1010101 0
+num0 load
+-1 1010101 1010101 1010101 10101010 10101010 10101010 
+0 10100 0 0 10100 0 0 10100 0 0 10100 0 0 10100 0 0 
+10100 0 0 10100 0 0 10100 101 0 10100 10101 0 10100
+1010100 0 10101 1010000 0 10101 1000000 0 10101 0 0 1010101 0
+num1 load
+: STAMP
+                                        DUP
+                                        1
+                                        swap NumeroPalette swap CELL @
+                                        0 i!
+                                        BEGIN
+                                            2DUP
+                                            i cell @
+                                            SWAP
+                                            framebuffer i 3 mod 4 * + WIDTH i 3 / * +
+                                            SWAP
+                                            drop 30 2 WIDTH * * +
+                                            EA 2 * +
+                                            !
+                                            i+
+                                            i 30 =
+                                        UNTIL
+                                        DROP DROP DROP
+                                    ;
+                        : ERROR 
+                         41 54 41 52 52 45 20 58 emit emit emit emit emit emit emit emit
+                        ;
+                        : MOVEPX 
+                            DUP
+                            4 mod 0 =
+                            IF 
+                             cursorx @ + cursorx !
+                            SETCURSOR
+                            ELSE
+                            ERROR
+                            THEN
+                        ;
+                        : MOVEPY 
+                            cursory @ + cursory !
+                            SETCURSOR
+                        ;
+                        : MOVEX
+                            DUP
+                            4 mod 0 =
+                            IF 
+                            cursorx !
+                            SETCURSOR
+                            ELSE
+                            ERROR
+                            THEN
+                        ;
+                        : MOVEY
+                            cursory !
+                            SETCURSOR
+                        ;
+                        : MOVEXY
+                           MOVEY
+                           MOVEX
+                        ;
+                        : GETPOSXY
+                         cursorx @
+                         cursory @
+                        ;
+                        : MOVECURSOR
+                         posx @ posy @ movexy
+                        ;
+                            01010101 CONSTANT LINE1
+                            02020202 CONSTANT LINE2
+                            03030303 CONSTANT LINE3
+                            variable defaultline
+                            variable color
+                            variable angular
+                            50 50 MOVEXY
+                            SETCURSORINFO
+                            SETCURSOR
+                        : SETDEFAULTLINE
+                            defaultline !
+                        ;
+                        line1 SETDEFAULTLINE 
+                        : DRAWVD
+                                GETPOSXY
+                                posy !
+                                posx !
+                                lenght !
+                                0 i!
+                                DEFAULTLINE @
+                                BEGIN
+                                    DUP
+                                    FRAMEBUFFER posx @ + posy @ WIDTH * + !
+                                    posy @ 1 + posy !
+                                    i+
+                                    i lenght @ =
+                                UNTIL
+                                MOVECURSOR
+                                drop
+                            ;
+                        : DRAWHR
+                                GETPOSXY
+                                posy !
+                                posx !
+                                lenght !
+                                0 i!
+                                DEFAULTLINE @ 
+                                BEGIN
+                                    DUP
+                                    FRAMEBUFFER posx @ + posy @ WIDTH * + !
+                                    posx @ 4 + posx !
+                                    i+
+                                    i lenght @ =
+                                UNTIL
+                                MOVECURSOR
+                                drop
+                            ;
+                        : DRAWHL
+                                GETPOSXY
+                                posy !
+                                posx !
+                                lenght !
+                                0 i!
+                                DEFAULTLINE @ 
+                                BEGIN
+                                    DUP
+                                    FRAMEBUFFER posx @ + posy @ WIDTH * + !
+                                    posx @ 4 - posx !
+                                    i+
+                                    i lenght @ =
+                                UNTIL
+                                MOVECURSOR
+                                drop
+                            ;
+                        : DRAWVU
+                                GETPOSXY
+                                posy !
+                                posx !
+                                lenght !
+                                0 i!
+                                DEFAULTLINE @
+                                BEGIN
+                                    DUP
+                                    FRAMEBUFFER posx @ + posy @ WIDTH * + !
+                                    posy @ 1 - posy !
+                                    i+
+                                    i lenght @ =
+                                UNTIL
+                                MOVECURSOR
+                                drop
+                            ;
+                        : OBBDR
+                                GETPOSXY
+                                
+                                posy !
+                                posx !
+                                lenght !
+                                angular !
+                                color !
+                                0 i!
+                                BEGIN
+                                    0 j!
+                                    begin
+                                    color @
+                                    FRAMEBUFFER posx @ + posy @ WIDTH * + !
+                                    posy @ 1 + posy !
+                                    j+
+                                    j angular @ =
+                                    until
+                                    color @
+                                    FRAMEBUFFER posx @ + posy @ WIDTH * + !
+                                    posx @ 4 + posx !
+                                    i+
+                                    i lenght @ =
+                                UNTIL
+                                    MOVECURSOR                 
+                            ;
+                        : OBBDL
+                                GETPOSXY
+                                posy !
+                                posx !
+                                lenght !
+                                angular ! 
+                                color !
+                                0 i!
+                                BEGIN
+                                    0 j!
+                                    begin
+                                    color @
+                                    FRAMEBUFFER posx @ + posy @ WIDTH * + !
+                                    posy @ 1 + posy !
+                                    j+
+                                    j angular @ =
+                                    until     
+                                    color @
+                                    FRAMEBUFFER posx @ + posy @ WIDTH * + !
+                                    posx @ 4 - posx !
+                                    i+
+                                    i lenght @ =
+                                UNTIL
+                                    MOVECURSOR
+                            ;                              
+                        : OBBUL
+                                GETPOSXY
+                                posy !
+                                posx !
+                                lenght !
+                                angular !
+                                color !
+                                0 i!
+                                BEGIN
+                                    0 j!
+                                    begin
+                                    color @
+                                    FRAMEBUFFER posx @ + posy @ WIDTH * + !
+                                    posy @ 1 - posy !
+                                    j+
+                                    j angular @ =
+                                    until
+                                    color @
+                                    FRAMEBUFFER posx @ + posy @ WIDTH * + !
+                                    posx @ 4 - posx !
+                                    i+
+                                    i lenght @ =
+                                UNTIL
+                                    MOVECURSOR
+                            ;
+                        : OBBUR
+                                GETPOSXY
+                                posy !
+                                posx !
+                                lenght !
+                                angular !
+                                color !
+                                0 i!
+                                BEGIN
+                                    0 j!
+                                    begin
+                                    color @
+                                    FRAMEBUFFER posx @ + posy @ WIDTH * + !
+                                    posy @ 1 - posy !
+                                    j+
+                                    j angular @ =
+                                    until
+                                    color @
+                                    FRAMEBUFFER posx @ + posy @ WIDTH * + !
+                                    posx @ 4 + posx !
+                                    MOVECURSOR
+                                    i+
+                                    i lenght @ =
+                                UNTIL
+                            ;
+                    : SCREENSAVERSTART
+                     52 45 56 41 53 4E 45 45 52 43 53 emit emit emit emit emit emit emit emit emit emit emit 
+                    ;
+                    : SCREENSAVERFINISH
+                        4F 54 49 4E 49 46 emit emit emit emit emit emit    
+                    ; 
+                    : CLEAN
+                        -90 12 movexy
+                        ff000000 CHANGELINE3
+                        line3 SETDEFAULTLINE
+                        30000 drawhr
+                        0 12 movexy
+                        SCREENSAVERFINISH
+                    ;
+                    : SCREENSAVER1
+                        SCREENSAVERSTART
+                            FFFFFFFF CHANGEBACKGROUND
+                            timer timer
+                            FF000000 CHANGEBACKGROUND
+                            timer timer
+                            FFFF0000 CHANGEBACKGROUND
+                            timer timer
+                            FF00FF00 CHANGEBACKGROUND
+                            timer timer
+                            FF0000FF CHANGEBACKGROUND
+                            timer timer
+                            FFFFFFFF CHANGEBACKGROUND
+                            timer timer
+                            FF000000 CHANGEBACKGROUND
+                        SCREENSAVERFINISH
+                    ;
+                    : SCREENSAVER2
+                        CLEAN
+                        -90 12 movexy
+                        FF0000ff CHANGELINE1
+                        line1 SETDEFAULTLINE
+                        30000 DRAWHR
+
+                        -90 12 movexy
+                        FFff00ff CHANGELINE2
+                        LINE2 SETDEFAULTLINE
+                        30000 DRAWHR
+
+                        -90 12 movexy
+                        FF808080 CHANGELINE1
+                        line1 SETDEFAULTLINE
+                        30000 DRAWHR
+
+                        -90 12 movexy
+                        FF008080 CHANGELINE2
+                        LINE2 SETDEFAULTLINE
+                        30000 DRAWHR
+
+                        -90 12 movexy
+                        FFFFFFFF CHANGELINE1
+                        line1 SETDEFAULTLINE
+                        30000 DRAWHR
+
+                        CLEAN
+                    ;
+                    : HEART
+                            movexy
+                            line1 5 5 obbul
+                            line1 4 5 obbdl
+                            line1 4 5 obbdl
+                            line1 5 10 obbdr
+                            line1 5 10 obbur
+                            line1 4 5 obbul
+                            line1 4 5 obbul
+                            line1 5 5 obbdl
+                            ff0000ff CHANGELINE1
+                    ;
+                    : HEARTS
+                            50 50 HEART
+                            100 50 heart
+                            150 50 heart
+                            200 50 heart
+                            250 50 heart
+                            300 50 heart
+                            50 100 HEART
+                            100 100 heart
+                            150 100 heart
+                            200 100 heart
+                            250 100 heart
+                            300 100 heart
+                          50 200 HEART
+                            100 200 heart
+                            150 200 heart
+                            200 200 heart
+                            250 200 heart
+                            300 200 heart
+                        SCREENSAVERFINISH
+                    ;

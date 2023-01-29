@@ -1,0 +1,21 @@
+array	dcd		1,2,3,4
+		
+		mov		r0,#array
+		;mov		r1,#0x0
+		mov		r2,#0x4 ; dimensione array
+		;mov		r4,#0   ;inizializzazione somma
+		
+while
+		
+		cmp		r1,r2
+		beq		stop
+		
+		ldr		r3,[r0] ; conservo l'elemento puntato
+		add		r4,r4,r3 ;somma
+		add		r0,r0,#0x4 ; incremento puntatore
+		add		r1,r1,#0x1 ;incremento contatore
+		
+		b		while
+		
+stop
+		

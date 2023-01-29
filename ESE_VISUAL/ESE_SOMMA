@@ -1,0 +1,9 @@
+; translate the following high-level code into ARM assembly language.Assume variables a-c are held in registers R0-R2 and f-j are in R3-R7
+
+; R0=A - R1=B - R2=C - R3=F - R4=G - R5=H - R6=R4+R5 - R7=J - R8=I - R9=R7+R8
+
+SUB R0,R1,R2
+ADD R6,R4,R5
+ADD R9,R7,R8
+SUB R3,R6-R9
+
